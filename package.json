@@ -1,0 +1,36 @@
+{
+  "name": "dualsense-websocket-controller",
+  "version": "1.0.0",
+  "description": "A Node.js server that reads input from PlayStation 5 DualSense controllers and broadcasts via WebSocket",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "dualsense",
+    "ps5",
+    "controller",
+    "websocket",
+    "gamepad",
+    "hid",
+    "node-hid"
+  ],
+  "author": "Luke Haddock",
+  "license": "MIT",
+  "dependencies": {
+    "node-hid": "^2.1.1",
+    "ws": "^8.16.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/dualsense-websocket-controller.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/dualsense-websocket-controller/issues"
+  },
+  "homepage": "https://github.com/yourusername/dualsense-websocket-controller#readme"
+}

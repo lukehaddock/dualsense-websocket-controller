@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PS5 DualSense Controller Input Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #output {
+            font-family: monospace;
+            white-space: pre;
+            padding: 20px;
+            border: 1px solid #ccc;
+            height: 400px;
+            overflow-y: auto;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+        }
+        .status {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <h1>PS5 DualSense Controller Input Viewer</h1>
+    <div id="status" class="status disconnected">Disconnected</div>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        const status = document.getElementById('status');
+        const ws = new WebSocket('ws://localhost:8080');
+
+        function updateStatus(connected) {
+            status.textContent = connected ? 'Connected' : 'Disconnected';
+            status.className = `status ${connected ? 'connected' : 'disconnected'}`;
+        }
+
+        function formatData(data) {
+            switch (data.type) {
+                case 'button':
+                    return `Button ${data.button} (${data.state})`;
+                case 'axis':
+                    return `Axis ${data.axis}: ${data.value.toFixed(2)}`;
+                case 'status':
+                    return `Controller ${data.status} (${data.name || 'Unknown'})`;
+                default:
+                    return JSON.stringify(data);
+            }
+        }
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const timestamp = new Date().toISOString();
+            output.innerHTML += `[${timestamp}] ${formatData(data)}\n`;
+            output.scrollTop = output.scrollHeight;
+        };
+
+        ws.onopen = () => {
+            updateStatus(true);
+            output.innerHTML += 'Connected to WebSocket server\n';
+        };
+
+        ws.onclose = () => {
+            updateStatus(false);
+            output.innerHTML += 'Disconnected from WebSocket server\n';
+        };
+
+        ws.onerror = (error) => {
+            output.innerHTML += `WebSocket error: ${error}\n`;
+        };
+    </script>
+</body>
+</html> 
