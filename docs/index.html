@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DualSense WebSocket Controller - Live Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 300px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .controller-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .controller {
+            flex: 1;
+            min-width: 300px;
+        }
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .button {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            background: #f8f9fa;
+        }
+        .button.active {
+            background: #007bff;
+            color: white;
+        }
+        .stick {
+            width: 100px;
+            height: 100px;
+            border: 2px solid #ddd;
+            border-radius: 50%;
+            position: relative;
+            margin: 10px auto;
+        }
+        .stick-dot {
+            width: 20px;
+            height: 20px;
+            background: #007bff;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .trigger {
+            height: 20px;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px 0;
+            position: relative;
+        }
+        .trigger-fill {
+            height: 100%;
+            background: #007bff;
+            border-radius: 4px;
+            width: 0%;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .instructions {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        #rawData {
+            height: 200px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>DualSense WebSocket Controller - Live Demo</h1>
+    
+    <div class="instructions">
+        <h2>How to Use</h2>
+        <ol>
+            <li>Connect your DualSense controller via USB</li>
+            <li>Start the server on your computer: <code>sudo node server.js</code></li>
+            <li>Connect to the WebSocket server at <code>ws://localhost:8080</code></li>
+            <li>See your controller input in real-time below!</li>
+        </ol>
+    </div>
+
+    <div class="status" id="connectionStatus">Connecting to WebSocket server...</div>
+
+    <div class="container">
+        <div class="panel">
+            <h2>Controller Input</h2>
+            <div class="controller-display" id="controllerDisplay">
+                <!-- Controllers will be added here dynamically -->
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h2>Raw Data</h2>
+            <div id="rawData"></div>
+        </div>
+    </div>
+
+    <script>
+        const ws = new WebSocket('ws://localhost:8080');
+        const controllerDisplay = document.getElementById('controllerDisplay');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const rawData = document.getElementById('rawData');
+        const controllers = new Map();
+
+        ws.onopen = () => {
+            connectionStatus.textContent = 'Connected to WebSocket server';
+            connectionStatus.className = 'status connected';
+        };
+
+        ws.onclose = () => {
+            connectionStatus.textContent = 'Disconnected from WebSocket server';
+            connectionStatus.className = 'status disconnected';
+        };
+
+        ws.onerror = (error) => {
+            connectionStatus.textContent = 'WebSocket error: ' + error.message;
+            connectionStatus.className = 'status disconnected';
+        };
+
+        function createControllerElement(index) {
+            const controller = document.createElement('div');
+            controller.className = 'controller';
+            controller.innerHTML = `
+                <h3>Controller ${index}</h3>
+                <div class="button-grid">
+                    <div class="button" id="btn-square-${index}">Square</div>
+                    <div class="button" id="btn-cross-${index}">Cross</div>
+                    <div class="button" id="btn-circle-${index}">Circle</div>
+                    <div class="button" id="btn-triangle-${index}">Triangle</div>
+                    <div class="button" id="btn-l1-${index}">L1</div>
+                    <div class="button" id="btn-r1-${index}">R1</div>
+                    <div class="button" id="btn-create-${index}">Create</div>
+                    <div class="button" id="btn-options-${index}">Options</div>
+                    <div class="button" id="btn-l3-${index}">L3</div>
+                    <div class="button" id="btn-r3-${index}">R3</div>
+                    <div class="button" id="btn-ps-${index}">PS</div>
+                    <div class="button" id="btn-mute-${index}">Mute</div>
+                </div>
+                <div class="dpad">
+                    <h4>D-Pad</h4>
+                    <div class="button-grid">
+                        <div class="button" id="btn-dpad-up-${index}">Up</div>
+                        <div class="button" id="btn-dpad-right-${index}">Right</div>
+                        <div class="button" id="btn-dpad-down-${index}">Down</div>
+                        <div class="button" id="btn-dpad-left-${index}">Left</div>
+                    </div>
+                </div>
+                <div class="sticks">
+                    <h4>Left Stick</h4>
+                    <div class="stick" id="left-stick-${index}">
+                        <div class="stick-dot"></div>
+                    </div>
+                    <h4>Right Stick</h4>
+                    <div class="stick" id="right-stick-${index}">
+                        <div class="stick-dot"></div>
+                    </div>
+                </div>
+                <div class="triggers">
+                    <h4>Triggers</h4>
+                    <div class="trigger" id="trigger-l2-${index}">
+                        <div class="trigger-fill"></div>
+                    </div>
+                    <div class="trigger" id="trigger-r2-${index}">
+                        <div class="trigger-fill"></div>
+                    </div>
+                </div>
+            `;
+            return controller;
+        }
+
+        function updateControllerDisplay(data) {
+            data.controllers.forEach((controller, index) => {
+                if (!controllers.has(index)) {
+                    const element = createControllerElement(index);
+                    controllerDisplay.appendChild(element);
+                    controllers.set(index, element);
+                }
+
+                // Update buttons
+                Object.entries(controller.buttons).forEach(([button, value]) => {
+                    const element = document.getElementById(`btn-${button}-${index}`);
+                    if (element) {
+                        element.className = `button ${value ? 'active' : ''}`;
+                    }
+                });
+
+                // Update D-pad
+                Object.entries(controller.dpad).forEach(([direction, value]) => {
+                    const element = document.getElementById(`btn-dpad-${direction}-${index}`);
+                    if (element) {
+                        element.className = `button ${value ? 'active' : ''}`;
+                    }
+                });
+
+                // Update sticks
+                const leftStick = document.getElementById(`left-stick-${index}`);
+                const rightStick = document.getElementById(`right-stick-${index}`);
+                if (leftStick && rightStick) {
+                    const leftDot = leftStick.querySelector('.stick-dot');
+                    const rightDot = rightStick.querySelector('.stick-dot');
+                    
+                    // Convert -1 to 1 range to 0 to 100 range for positioning
+                    const leftX = (controller.leftStick.x + 1) * 50;
+                    const leftY = (controller.leftStick.y + 1) * 50;
+                    const rightX = (controller.rightStick.x + 1) * 50;
+                    const rightY = (controller.rightStick.y + 1) * 50;
+                    
+                    leftDot.style.left = `${leftX}%`;
+                    leftDot.style.top = `${leftY}%`;
+                    rightDot.style.left = `${rightX}%`;
+                    rightDot.style.top = `${rightY}%`;
+                }
+
+                // Update triggers
+                const l2Fill = document.querySelector(`#trigger-l2-${index} .trigger-fill`);
+                const r2Fill = document.querySelector(`#trigger-r2-${index} .trigger-fill`);
+                if (l2Fill && r2Fill) {
+                    l2Fill.style.width = `${controller.triggers.l2 * 100}%`;
+                    r2Fill.style.width = `${controller.triggers.r2 * 100}%`;
+                }
+            });
+        }
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            // Update raw data display
+            const timestamp = new Date().toLocaleTimeString();
+            rawData.innerHTML = `[${timestamp}] ${JSON.stringify(data, null, 2)}<br>` + rawData.innerHTML;
+            
+            if (data.type === 'controllers') {
+                updateControllerDisplay(data);
+            }
+        };
+    </script>
+</body>
+</html> 
